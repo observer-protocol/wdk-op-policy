@@ -1,0 +1,65 @@
+{
+  "name": "@observer-protocol/wdk-op-policy",
+  "version": "0.1.0",
+  "description": "Observer Protocol delegation-credential enforcement for the Tether WDK transaction policy engine (PR #55). Ships an ALLOW+DENY policy pair as one unit — the DENY companion is mandatory and fails closed — so a WDK account verifies a signed agent mandate at the signer boundary before any write op runs.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist/",
+    "docs/SCOPE.md",
+    "docs/SUPPORT-MATRIX.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/index.mjs && esbuild src/index.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/index.cjs && tsc --emitDeclarationOnly --outDir dist",
+    "typecheck": "tsc --noEmit",
+    "check:core-sync": "node scripts/check-core-sync.mjs",
+    "fixtures": "node test/fixtures/gen.mjs",
+    "verify": "npm run build && npm run fixtures && node examples/verify-yourself.mjs",
+    "watch:beta11": "node scripts/watch-beta11.mjs",
+    "test": "npm run typecheck && npm run build && npm run fixtures && node test/run.mjs",
+    "prepublishOnly": "npm run check:core-sync && npm run typecheck && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/observer-protocol/wdk-op-policy.git"
+  },
+  "keywords": [
+    "wdk",
+    "tether",
+    "observer-protocol",
+    "agent-wallet",
+    "policy-engine",
+    "transaction-policy",
+    "verifiable-credentials",
+    "did",
+    "delegation",
+    "eddsa-jcs-2022"
+  ],
+  "peerDependencies": {
+    "@tetherto/wdk": ">=1.0.0-beta.11"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "esbuild": "^0.21.0",
+    "typescript": "^5.4.0",
+    "@tetherto/wdk": "1.0.0-beta.11"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
