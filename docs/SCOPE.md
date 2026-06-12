@@ -35,6 +35,7 @@ all three engines (OWS executable, mppx account, WDK policy) — deliberately de
 engine ships without restructuring the published OWS package.
 
 ## Release
-Built and validated against `tetherto/wdk@a00b391` (PR #55 merge commit, on `main`). The
-peer dependency targets the first published build that carries #55 (`>=1.0.0-beta.11`);
+Built against the PR #55 merge commit and validated against the published
+`@tetherto/wdk@1.0.0-beta.11` (parity-identical), 26 conformance cases. The peer dependency
+targets the first published build that carries #55 (`>=1.0.0-beta.11`);
 develop against the `main` pin until then.

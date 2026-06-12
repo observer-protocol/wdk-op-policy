@@ -1,9 +1,10 @@
 # Support matrix — what this engine enforces, and exactly how
 
 Same discipline as the OWS and mppx engines: nothing claimed that a conformance case does
-not prove; partial/inherited enforcement is stated. Validated against the **real merged WDK
-policy engine** (`tetherto/wdk` @ `a00b391`) + a real `applyPoliciesTo` Proxy + the real OP
-condition — **20 conformance cases pass**.
+not prove; partial/inherited enforcement is stated. Validated against the **published WDK
+policy engine** `@tetherto/wdk@1.0.0-beta.11` (parity-identical to the PR #55 merge commit
+`a00b391`) + a real `applyPoliciesTo` Proxy + the real OP condition — **26 conformance cases
+pass**.
 
 ## Construction — the DENY companion is the backbone
 The public API (`registerObserverPolicy` / `buildObserverPolicies`) **always emits an

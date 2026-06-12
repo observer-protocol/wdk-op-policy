@@ -58,11 +58,11 @@ operation, the fail-closed construction, rail resolution, and limitations are in
   the DENY backbone holds even alongside a permissive baseline.
 - **Enforcement locus:** the signer boundary, from the actual operation params — portable
   across OWS, mppx, and WDK. *The binding layer is contested; the enforcement locus is not.*
-- Validated against the **real merged engine** (`tetherto/wdk@a00b391`), 20 conformance cases.
+- Validated against the **published engine** (`@tetherto/wdk@1.0.0-beta.11`), 26 conformance cases.
 
 ## Develop
 ```sh
-npm test                  # typecheck + build + fixtures + 20 conformance cases (real engine)
+npm test                  # typecheck + build + fixtures + 26 conformance cases (real engine)
 npm run check:core-sync   # vendored core must match ows-op-verify byte-for-byte
 ```
 MIT.
