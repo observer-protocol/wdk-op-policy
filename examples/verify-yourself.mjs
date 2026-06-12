@@ -1,5 +1,5 @@
 // Verify it yourself — watch an Observer Protocol mandate enforced through the
-// REAL Tether WDK policy engine (PR #55, merge commit a00b391), end to end.
+// REAL Tether WDK policy engine (PR #55, published @tetherto/wdk@1.0.0-beta.11), end to end.
 //
 //   npm install && npm run verify
 //
@@ -31,7 +31,7 @@ const engine = new PolicyEngine();
 const wdkShim = { registerPolicy: (policies, options) => engine.register(policies, options) };
 
 console.log(`${b}Observer Protocol × Tether WDK — verify it yourself${x}`);
-console.log(`${d}engine: tetherto/wdk @ a00b391 (PR #55) · credential: signed ObserverDelegationCredential (v2.1)${x}\n`);
+console.log(`${d}engine: @tetherto/wdk@1.0.0-beta.11 (PR #55) · credential: signed ObserverDelegationCredential (v2.1)${x}\n`);
 
 // Register OP enforcement. ONE call emits the ALLOW + DENY pair (DENY is the
 // mandatory fail-closed backbone). The mandate: <=100 USDC per tx, only to the
