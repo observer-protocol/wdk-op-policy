@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'node:fs';
-import type { AuditEntry } from './core/types.js';
+import type { AuditEntry } from '@observer-protocol/policy-engine';
 
 // Cross-transaction daily velocity counter (the only constraint that needs
 // state). Mirrors the mppx engine's approach: an in-process counter recovered at

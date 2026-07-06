@@ -1,6 +1,6 @@
 {
   "name": "@observer-protocol/wdk-op-policy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Observer Protocol delegation-credential enforcement for the Tether WDK transaction policy engine (PR #55). Ships an ALLOW+DENY policy pair as one unit — the DENY companion is mandatory and fails closed — so a WDK account verifies a signed agent mandate at the signer boundary before any write op runs.",
   "license": "MIT",
   "type": "module",
@@ -50,11 +50,15 @@
   "peerDependencies": {
     "@tetherto/wdk": ">=1.0.0-beta.11"
   },
+  "dependencies": {
+    "@observer-protocol/policy-engine": "^0.2.0"
+  },
   "devDependencies": {
+    "@tetherto/wdk": "1.0.0-beta.11",
     "@types/node": "^25.9.2",
     "esbuild": "^0.21.0",
     "typescript": "^5.4.0",
-    "@tetherto/wdk": "1.0.0-beta.11"
+    "viem": "^2.52.2"
   },
   "publishConfig": {
     "access": "public"

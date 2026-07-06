@@ -1,0 +1,9 @@
+Observer Protocol × Tether WDK — verify it yourself
+engine: tetherto/wdk @ a00b391 (PR #55) · credential: signed ObserverDelegationCredential (v2.1)
+
+ALLOWED  transfer 50 USDT → allowlisted merchant (in mandate)  → key signed: 0xREAL_SIGNATURE
+BLOCKED  transfer 150 USDT → merchant (over the 100 ceiling)  → op-violation
+BLOCKED  transfer 50 USDT → a non-allowlisted address  → op-violation
+
+The enforcement happened inside account.transfer, before the signature — at the key.
+Out-of-mandate and unverifiable calls throw PolicyViolationError; the key never signs.

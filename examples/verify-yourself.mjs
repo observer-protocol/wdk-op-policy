@@ -1,5 +1,5 @@
 // Verify it yourself — watch an Observer Protocol mandate enforced through the
-// REAL Tether WDK policy engine (PR #55, published @tetherto/wdk@1.0.0-beta.11), end to end.
+// REAL Tether WDK policy engine (PR #55, merge commit a00b391), end to end.
 //
 //   npm install && npm run verify
 //
@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { erc20TransferData } from '../test/fixtures/lib.mjs';
-import { OUT, ISSUER, AGENT, SCHEMA_URL, MERCHANT_ADDR, OTHER_ADDR, USDC_CONTRACT, USDC } from '../test/fixtures/consts.mjs';
+import { OUT, ISSUER, AGENT, SCHEMA_URL, MERCHANT_ADDR, OTHER_ADDR, USDT_CONTRACT, USDT } from '../test/fixtures/consts.mjs';
 
 const g = '\x1b[1;32m', r = '\x1b[1;31m', d = '\x1b[2m', b = '\x1b[1m', x = '\x1b[0m';
 
@@ -31,14 +31,14 @@ const engine = new PolicyEngine();
 const wdkShim = { registerPolicy: (policies, options) => engine.register(policies, options) };
 
 console.log(`${b}Observer Protocol × Tether WDK — verify it yourself${x}`);
-console.log(`${d}engine: @tetherto/wdk@1.0.0-beta.11 (PR #55) · credential: signed ObserverDelegationCredential (v2.1)${x}\n`);
+console.log(`${d}engine: tetherto/wdk @ a00b391 (PR #55) · credential: signed ObserverDelegationCredential (v2.1)${x}\n`);
 
 // Register OP enforcement. ONE call emits the ALLOW + DENY pair (DENY is the
-// mandatory fail-closed backbone). The mandate: <=100 USDC per tx, only to the
-// allowlisted merchant, <=150 USDC/day.
+// mandatory fail-closed backbone). The mandate: <=100 USDT per tx, only to the
+// allowlisted merchant, <=150 USDT/day.
 registerObserverPolicy(wdkShim, {
   policy: {
-    credentialPath: join(OUT, 'cred-wdk-usdc.json'),
+    credentialPath: join(OUT, 'cred-wdk-usdt.json'),
     issuerDid: ISSUER, schemaAllowlist: [SCHEMA_URL], agentDid: AGENT,
     revocation: { maxStalenessHours: 24, onUnreachable: 'cache-then-deny', fetchTimeoutMs: 1500 },
     didCache: { maxStalenessHours: 24 }, cacheDir: join(OUT, 'cache'),
@@ -49,16 +49,16 @@ registerObserverPolicy(wdkShim, {
 }, { wallet: 'ethereum' });
 
 const proxy = await engine.applyPoliciesTo(account, { blockchain: 'ethereum', path: account.path, index: 0 });
-const usdcTransfer = (to, whole) => proxy.transfer({ token: USDC_CONTRACT, recipient: to, amount: USDC(whole) });
+const usdtTransfer = (to, whole) => proxy.transfer({ token: USDT_CONTRACT, recipient: to, amount: USDT(whole) });
 
 async function show(label, fn) {
   try { const sig = await fn(); console.log(`${g}ALLOWED${x}  ${label}  ${d}→ key signed: ${sig}${x}`); }
   catch (e) { const why = e instanceof PolicyViolationError ? e.reason : e.message; console.log(`${r}BLOCKED${x}  ${label}  ${d}→ ${why}${x}`); }
 }
 
-await show('transfer 50 USDC → allowlisted merchant (in mandate)', () => usdcTransfer(MERCHANT_ADDR, 50));
-await show('transfer 150 USDC → merchant (over the 100 ceiling)', () => usdcTransfer(MERCHANT_ADDR, 150));
-await show('transfer 50 USDC → a non-allowlisted address', () => usdcTransfer(OTHER_ADDR, 50));
+await show('transfer 50 USDT → allowlisted merchant (in mandate)', () => usdtTransfer(MERCHANT_ADDR, 50));
+await show('transfer 150 USDT → merchant (over the 100 ceiling)', () => usdtTransfer(MERCHANT_ADDR, 150));
+await show('transfer 50 USDT → a non-allowlisted address', () => usdtTransfer(OTHER_ADDR, 50));
 
 console.log(`\n${d}The enforcement happened inside account.transfer, before the signature — at the key.${x}`);
 console.log(`${d}Out-of-mandate and unverifiable calls throw PolicyViolationError; the key never signs.${x}`);

@@ -1,5 +1,4 @@
-import { base58Encode } from './base58.js';
-import { SOLANA_PROGRAMS, SOLANA_BENIGN_PROGRAMS } from './tokens.js';
+import { base58Encode, SOLANA_PROGRAMS, SOLANA_BENIGN_PROGRAMS } from '@observer-protocol/policy-engine';
 
 // Solana transaction parsing from raw_hex. Zero runtime dependencies.
 //

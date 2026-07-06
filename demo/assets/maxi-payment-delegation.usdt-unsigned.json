@@ -1,0 +1,19 @@
+{
+  "@context": ["https://www.w3.org/ns/credentials/v2"],
+  "id": "urn:uuid:observer-delegation-maxi-0001-payment-demo",
+  "type": ["VerifiableCredential", "ObserverDelegationCredential"],
+  "issuer": "did:web:observerprotocol.org",
+  "validFrom": "2026-06-12T21:54:00Z",
+  "validUntil": "2027-06-12T21:54:00Z",
+  "credentialSchema": { "id": "https://observerprotocol.org/schemas/delegation/v2.1.json", "type": "JsonSchema" },
+  "credentialSubject": {
+    "id": "did:web:observerprotocol.org:agents:maxi-0001",
+    "authorizationLevel": "policy",
+    "authorizationConfig": { "policy": { "policy_id": "maxi-payment-demo", "rail_preference": ["ethereum-mainnet"] } },
+    "actionScope": { "allowed_rails": ["ethereum-mainnet"], "per_transaction_ceiling": { "amount": "100", "currency": "USDT" } },
+    "delegationScope": { "may_delegate_further": false },
+    "enforcementMode": "pre_transaction_check",
+    "tradingMandate": { "unit": "USDT", "maxNotionalPerOrder": 100, "counterparty": { "allowList": ["0xa11ce00000000000000000000000000000000001"] } }
+  },
+  "__staging_note": "UNSIGNED. Re-sign with did:web:observerprotocol.org#key-5 (eddsa-jcs-2022), drop this __staging_note key, then replace maxi-payment-delegation.json. See docs/USDT-SWAP-STAGING.md."
+}

@@ -1,8 +1,6 @@
-import { parseConfig } from './core/config.js';
+import { parseConfig, appendAudit, verifyCredential, enforceMandate, CrossRailLedger } from '@observer-protocol/policy-engine';
+import type { ObserverDelegationCredential, PolicyContext, VerifierConfig } from '@observer-protocol/policy-engine';
 import { resolveTransfer } from './core/resolve-transfer.js';
-import { appendAudit } from './core/audit.js';
-import type { ObserverDelegationCredential, VerifierConfig } from './core/types.js';
-import { verifyCredential, enforceMandate } from './verify.js';
 import { mapContext } from './map-context.js';
 import { VelocityCounter, utcDay, type VelocityAuditEntry } from './counter.js';
 import { type ObserverWdkConfig, ObserverConfigError, type WdkPolicyContext } from './adapter-types.js';
@@ -52,12 +50,17 @@ export function createObserverCondition(cfg: ObserverWdkConfig): ObserverConditi
     return counter;
   };
 
+  // Shared cross-rail spend ledger (same file the x402/l402 buyer gates use).
+  // Absent ledger + crossRailBudget mandate = no counter = fail-closed deny
+  // in the shared evaluator.
+  const ledger = cfg.crossRailLedgerPath ? new CrossRailLedger(cfg.crossRailLedgerPath) : undefined;
+
   // The engine evaluates BOTH rules (ALLOW + DENY) per transaction, each calling
   // a condition with the SAME frozen context object. To avoid double-counting
   // velocity (and double-writing audit entries), snapshot the daily total once
   // per context so both conditions see the same pre-tx total, and record the
   // spend exactly once per context.
-  const snapByCtx = new WeakMap<object, { total: bigint | undefined }>();
+  const snapByCtx = new WeakMap<object, { total: bigint | undefined; cross?: { total: bigint } | { error: string } }>();
   const countedCtx = new WeakSet<object>();
 
   // Serialize verify+enforce per condition instance (= per credential = per
@@ -113,24 +116,48 @@ export function createObserverCondition(cfg: ObserverWdkConfig): ObserverConditi
     const asset = resolved.assetSymbol ?? railDef.currency;
     const day = utcDay(nowIso);
 
+    const crb = credential.credentialSubject.tradingMandate?.crossRailBudget;
+
     const c = counterFor(subject);
     c.recover();
     // Per-context snapshot so the ALLOW and DENY evaluations of the same tx agree
-    // and the spend isn't read after a sibling recorded it.
+    // and the spend isn't read after a sibling recorded it. The cross-rail total
+    // is snapshotted for the same reason.
     let snap = snapByCtx.get(context);
     if (!snap) {
       snap = { total: c.recoveryError ? undefined : c.dailyTotal(asset, day) };
+      if (crb && ledger && crb.rates && typeof crb.rates === 'object') {
+        const sum = ledger.sumWindowConverted(crb.rates, nowMs);
+        snap.cross = sum.ok ? { total: sum.total } : { error: sum.reason };
+      }
       snapByCtx.set(context, snap);
     }
     const dailyTotalRaw = snap.total;
 
-    const verdict = enforceMandate(map.ctx, credential, config, { resolvedOverride: resolved, dailyTotalRaw });
+    // An unestablishable cross-rail total (unpriceable in-window spend) is an
+    // established violation state, never an under-count.
+    if (snap.cross && 'error' in snap.cross) {
+      return { allow: false, reason: `[cross-rail] ${snap.cross.error}` };
+    }
+
+    // Inject velocity + cross-rail state into ctx before the shared enforceMandate.
+    let ctxForMandate: PolicyContext = map.ctx;
+    if (dailyTotalRaw !== undefined) {
+      ctxForMandate = { ...ctxForMandate, spending: { daily_total: dailyTotalRaw.toString(), date: day } };
+    }
+    if (snap.cross && 'total' in snap.cross && crb) {
+      ctxForMandate = { ...ctxForMandate, cross_rail: { total: snap.cross.total.toString(), currency: crb.currency } };
+    }
+    const verdict = enforceMandate(ctxForMandate, credential, config, resolved);
 
     if (verdict.allow) {
       // Record the spend ONCE per transaction (not once per condition eval).
       if (resolved.amount !== undefined && resolved.assetSymbol && !countedCtx.has(context)) {
         countedCtx.add(context);
         c.record(asset, day, resolved.amount);
+        // Count into the shared cross-rail ledger too — the other rails' gates
+        // must see this spend in their next evaluation.
+        ledger?.record({ rail: `wdk:${caip2}`, asset: resolved.assetSymbol, amountRaw: resolved.amount.toString(), decimals: resolved.decimals ?? railDef.decimals });
         audit({ kind: 'op-allow', decision: 'allow', reason: verdict.reason, subject_did: subject, asset, amount: resolved.amount.toString(), utc_day: day });
       }
       return { allow: true, reason: verdict.reason };

@@ -1,7 +1,7 @@
-import type { PolicyContext, RailDef, ResolvedTransfer, TokenDefConfig, VerifierConfig } from './types.js';
+import type { PolicyContext, RailDef, ResolvedTransfer, TokenDefConfig, VerifierConfig } from '@observer-protocol/policy-engine';
+import { DEFAULT_EVM_TOKENS, DEFAULT_SOLANA_MINTS } from '@observer-protocol/policy-engine';
 import { parseErc20Transfer } from './evmtx.js';
 import { parseSolanaRawTx } from './soltx.js';
-import { DEFAULT_EVM_TOKENS, DEFAULT_SOLANA_MINTS } from './tokens.js';
 
 // Resolve the OWS transaction context into a single {asset, amount, recipient}
 // view the mandate enforces against. This is where native-vs-token and

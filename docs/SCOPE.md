@@ -25,6 +25,10 @@
   consumer's own rules; default-deny blocks them on a governed account unless addressed.
 - **Allow-side monthly velocity** (deny-side lower bound only) and **roll-back of an
   OP-counted spend that a foreign DENY later blocks** (conservative over-count instead).
+- **Signed audit credential** — v0.1 records decisions to an unsigned local JSONL audit log.
+  A cryptographically-signed `PolicyEvaluationCredential` audit artifact (issued by the
+  Observer Protocol evaluator, bound to the proposal + delegation hashes) is **roadmap**, not
+  yet shipped.
 - **Per-trade / live-funds enforcement** — out of scope; a separate concern, neither
   blocked nor opened by this package.
 

@@ -9,16 +9,18 @@ import { join } from 'node:path';
 import { mkdtempSync, mkdirSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { erc20TransferData } from './fixtures/lib.mjs';
-import { OUT, ISSUER, AGENT, SCHEMA_URL, MERCHANT_ADDR, OTHER_ADDR, USDC_CONTRACT, USDC } from './fixtures/consts.mjs';
+import { OUT, ISSUER, AGENT, SCHEMA_URL, SCHEMA_URL_V22, MERCHANT_ADDR, OTHER_ADDR, USDC_CONTRACT, USDC, USDT_TRC20, TRON_MERCHANT, TRON_OTHER } from './fixtures/consts.mjs';
 
 let pass = 0, fail = 0; const failures = [];
 const freshLog = () => join(mkdtempSync(join(tmpdir(), 'wdk-op-')), 'decisions.jsonl');
 
-function makeConfig(cred, { auditLog, statusList = 'status-clean.json', didPath, wallets } = {}) {
+function makeConfig(cred, { auditLog, statusList = 'status-clean.json', didPath, wallets, crossRailLedgerPath } = {}) {
   return {
+    ...(crossRailLedgerPath ? { crossRailLedgerPath } : {}),
     policy: {
       credentialPath: join(OUT, `cred-${cred}.json`),
-      issuerDid: ISSUER, schemaAllowlist: [SCHEMA_URL], agentDid: AGENT,
+      trc20Tokens: { [USDT_TRC20]: { symbol: 'USDT', decimals: 6 } },
+      issuerDid: ISSUER, schemaAllowlist: [SCHEMA_URL, SCHEMA_URL_V22], agentDid: AGENT,
       revocation: { maxStalenessHours: 24, onUnreachable: 'cache-then-deny', fetchTimeoutMs: 1500 },
       didCache: { maxStalenessHours: 24 }, cacheDir: join(OUT, 'cache'),
       auditLog: auditLog ?? freshLog(),
@@ -153,6 +155,38 @@ await (async () => {
   if (allBlocked) pass++; else { fail++; failures.push(`timeout-batch: not all blocked: ${results.join(',')}`); }
   console.log(`${allBlocked ? 'PASS' : 'FAIL'}  mutex releases on TIMEOUT: 4 concurrent slow evals (150ms vs 30ms cap) all BLOCK, none hang (${results.join(',')})`);
 })();
+
+
+console.log('\n=== TRON rail (TRC-20 via structured WDK transfer, exact-case base58) ===');
+const USDT = (whole) => BigInt(Math.round(whole * 1e6));
+const tronCfg = (cred = 'wdk-usdt-tron', extra = {}) => makeConfig(cred, { wallets: { tron: 'tron:mainnet' }, ...extra });
+const tronGoverned = (cfg) => governed(cfg, { wallet: 'tron', blockchain: 'tron' });
+await allow('TRON transfer USDT 50 -> merchant', async () => (await tronGoverned(tronCfg())).proxy.transfer({ token: USDT_TRC20, recipient: TRON_MERCHANT, amount: USDT(50) }));
+await deny('TRON transfer USDT 150 over ceiling', async () => (await tronGoverned(tronCfg())).proxy.transfer({ token: USDT_TRC20, recipient: TRON_MERCHANT, amount: USDT(150) }));
+await deny('TRON transfer USDT 50 -> non-allowlisted', async () => (await tronGoverned(tronCfg())).proxy.transfer({ token: USDT_TRC20, recipient: TRON_OTHER, amount: USDT(50) }));
+// base58 is case-sensitive: a case-twiddled variant of an allowlisted address is a
+// DIFFERENT address (grindable collision if folded) and must be rejected.
+await deny('TRON case-twiddled merchant address -> deny (exact-case base58 compare)', async () => (await tronGoverned(tronCfg())).proxy.transfer({ token: USDT_TRC20, recipient: TRON_MERCHANT.toLowerCase(), amount: USDT(50) }));
+await deny('TRON unknown TRC-20 token -> fail closed', async () => (await tronGoverned(tronCfg())).proxy.transfer({ token: TRON_OTHER, recipient: TRON_MERCHANT, amount: USDT(50) }));
+// velocity on the TRON rail (same audit-replay counter, USDT asset)
+await (async () => { const g = await tronGoverned(tronCfg()); await allow('TRON velocity transfer #1 (80)', () => g.proxy.transfer({ token: USDT_TRC20, recipient: TRON_MERCHANT, amount: USDT(80) })); await deny('TRON velocity transfer #2 (80) trips dailyVolumeCap', () => g.proxy.transfer({ token: USDT_TRC20, recipient: TRON_MERCHANT, amount: USDT(80) })); })();
+
+console.log('\n=== cross-rail budget (shared ledger with the x402/l402 gates) ===');
+const { CrossRailLedger } = await import('@observer-protocol/policy-engine');
+await (async () => {
+  // The x402 engine already spent 3 USDC in the rolling window (same file, other rail).
+  const ledgerPath = join(mkdtempSync(join(tmpdir(), 'wdk-crl-')), 'cross-rail-ledger.jsonl');
+  const ledger = new CrossRailLedger(ledgerPath);
+  ledger.record({ rail: 'x402:eip155:84532', asset: 'USDC', amountRaw: '3000000', decimals: 6 });
+  const cfg = tronCfg('wdk-cross-rail', { crossRailLedgerPath: ledgerPath });
+  await allow('cross-rail: TRON USDT 1.5 after 3 USD x402 spend (4.5/5)', async () => (await tronGoverned(cfg)).proxy.transfer({ token: USDT_TRC20, recipient: TRON_MERCHANT, amount: USDT(1.5) }));
+  const after = ledger.sumWindowConverted({ USDT: '1', USDC: '1', sat: '0.0005' });
+  const recorded = after.ok && after.total === 4_500_000n;
+  recorded ? pass++ : (fail++, failures.push(`cross-rail record: expected 4.5 USD in shared ledger, got ${after.ok ? after.total : after.reason}`));
+  console.log(`${recorded ? 'PASS' : 'FAIL'}  cross-rail: allowed TRON spend recorded into the SHARED ledger (wdk:tron:mainnet, total 4.5 USD)`);
+  await deny('cross-rail: TRON USDT 2 after 4.5 USD spent (6.5/5) -> deny', async () => (await tronGoverned(cfg)).proxy.transfer({ token: USDT_TRC20, recipient: TRON_MERCHANT, amount: USDT(2) }));
+})();
+await deny('cross-rail: crossRailBudget mandate with NO ledger configured -> fail closed', async () => (await tronGoverned(tronCfg('wdk-cross-rail'))).proxy.transfer({ token: USDT_TRC20, recipient: TRON_MERCHANT, amount: USDT(1) }));
 
 console.log(`\nwdk-op-policy conformance: ${pass} passed, ${fail} failed`);
 if (fail > 0) { console.error('\nFAILURES:'); failures.forEach((f) => console.error('  ✗ ' + f)); process.exit(1); }

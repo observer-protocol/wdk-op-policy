@@ -40,6 +40,13 @@ export interface ObserverWdkConfig {
    * CAIP-2 chain id. Each CAIP-2 MUST resolve to a rail in policy.rails — checked
    * at construction; a label/context with no resolvable rail FAILS CLOSED. */
   wallets: Record<string, string>;
+  /** Path to the shared cross-rail spend ledger (CrossRailLedger JSONL — the
+   * same file the x402 and l402 buyer gates use). When set, it feeds the
+   * cross-rail budget counter before every evaluation and every ALLOWED spend
+   * is recorded into it (rail label `wdk:<caip2>`). A mandate carrying
+   * tradingMandate.crossRailBudget with no ledger configured fails closed
+   * (no counter can be established). */
+  crossRailLedgerPath?: string;
 }
 
 export class ObserverConfigError extends Error {

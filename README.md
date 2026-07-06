@@ -1,5 +1,7 @@
 # @observer-protocol/wdk-op-policy
 
+**The Tether-WDK instance of [OP Crossrail](https://observerprotocol.org)** — one signed mandate, one rolling cross-rail budget, one shared spend ledger, enforced on every rail an agent pays on. This engine enforces it inside the WDK transaction policy engine.
+
 Enforce a **signed Observer Protocol delegation credential** on a Tether **WDK** account —
 at the signer boundary, fail-closed — via the WDK transaction policy engine
 ([tetherto/wdk #55](https://github.com/tetherto/wdk/pull/55)).

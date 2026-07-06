@@ -5,7 +5,7 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { newIssuerKeys, signEddsaJcs2022, makeDidDocument, makeStatusList } from './lib.mjs';
-import { OUT, ISSUER, AGENT, SCHEMA_URL, MERCHANT_ADDR } from './consts.mjs';
+import { OUT, ISSUER, AGENT, SCHEMA_URL, SCHEMA_URL_V22, MERCHANT_ADDR, TRON_MERCHANT } from './consts.mjs';
 
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(join(OUT, 'cache'), { recursive: true });
@@ -44,11 +44,31 @@ function baseCredential(overrides = {}) {
 const sign = (c, k = key1.privateKey, vm = VM1) => signEddsaJcs2022(c, k, vm);
 const creds = {
   'wdk-usdc': sign(baseCredential()),
+  // Public-facing demo credential: same mandate denominated in USDT (the
+  // "× Tether WDK" page leads with USDT). Conformance fixtures stay USDC.
+  'wdk-usdt': sign(baseCredential({ subject: {
+    actionScope: { allowed_rails: ['ethereum-mainnet'], per_transaction_ceiling: { amount: '100', currency: 'USDT' } },
+    tradingMandate: { unit: 'USDT', counterparty: { allowList: [MERCHANT_ADDR] }, velocity: { dailyVolumeCap: 150 } },
+  } })),
   'no-velocity': sign(baseCredential({ subject: { tradingMandate: { unit: 'USDC', counterparty: { allowList: [MERCHANT_ADDR] } } } })),
   expired: sign(baseCredential({ top: { validUntil: '2026-02-01T00:00:00Z' } })),
   // malformed ceiling amount: passes structure, but parseDecimalScaled() THROWS
   // inside evaluateMandate -> verifyAndEnforce rejects (exercises mutex reject path).
   'bad-amount': sign(baseCredential({ subject: { actionScope: { allowed_rails: ['ethereum-mainnet'], per_transaction_ceiling: { amount: 'not-a-number', currency: 'USDC' } } } })),
+  // TRON rail: USDT TRC-20 mandate (structured WDK transfer, exact-case base58 matching).
+  'wdk-usdt-tron': sign(baseCredential({ subject: {
+    authorizationConfig: { policy: { policy_id: 'wdk-tron', rail_preference: ['usdt-trc20'] } },
+    actionScope: { allowed_rails: ['tron:mainnet'], per_transaction_ceiling: { amount: '100', currency: 'USDT' } },
+    tradingMandate: { unit: 'USDT', counterparty: { allowList: [TRON_MERCHANT] }, velocity: { dailyVolumeCap: 150 } },
+  } })),
+  // Cross-rail budget (schema v2.3): one 24h USD budget across TRON + Ethereum +
+  // Lightning at principal-attested rates (USDT explicitly 1 — its OWN entry,
+  // no implicit peg-equivalence with USDC).
+  'wdk-cross-rail': sign(baseCredential({ top: { credentialSchema: { id: SCHEMA_URL_V22, type: 'JsonSchema' } }, subject: {
+    authorizationConfig: { policy: { policy_id: 'wdk-cross-rail', rail_preference: ['usdt-trc20'] } },
+    actionScope: { allowed_rails: ['tron:mainnet', 'eip155:1', 'lightning'] },
+    tradingMandate: { counterparty: { allowList: [TRON_MERCHANT, MERCHANT_ADDR] }, crossRailBudget: { amount: '5', currency: 'USD', window: 'P1D', rates: { USDT: '1', USDC: '1', sat: '0.0005' } } },
+  } })),
 };
 const tampered = JSON.parse(JSON.stringify(creds['wdk-usdc']));
 tampered.credentialSubject.actionScope.per_transaction_ceiling.amount = '999999';
